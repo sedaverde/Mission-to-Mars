@@ -1,6 +1,7 @@
 # Import Splinter, BeautifulSoup, and Pandas
 from splinter import Browser
 from bs4 import BeautifulSoup as soup
+import numpy as py
 import pandas as pd
 import datetime as dt
 from webdriver_manager.chrome import ChromeDriverManager
@@ -8,18 +9,19 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 def scrape_all():
     # Initiate headless driver for deployment
-    executable_path = {'executable_path': ChromeDriverManager().install()}
-    browser = Browser('chrome', **executable_path, headless=True)
+    browser = Browser("chrome", executable_path="chromedriver", headless=True)
 
     news_title, news_paragraph = mars_news(browser)
+    hemisphere_image_urls=hemispheres(browser)
 
     # Run all scraping functions and store results in a dictionary
-    data = {
+    data = { 
         "news_title": news_title,
         "news_paragraph": news_paragraph,
         "featured_image": featured_image(browser),
         "facts": mars_facts(),
-        "last_modified": dt.datetime.now()
+        "last_modified": dt.datetime.now(),
+        "hemispheres": hemisphere_image_urls
     }
 
     # Stop webdriver and return data
@@ -101,3 +103,33 @@ if __name__ == "__main__":
 
     # If running as script, print scraped data
     print(scrape_all())
+
+def hemispheres(browser):
+    url = 'https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
+    browser.visit(url)
+
+    hemisphere_image_urls = []
+    
+    for i in range(4):
+        browser.find_by_css('a.product-item h3')[i].click()
+        hemisphere = hemisphere_images(browser.html)
+        hemisphere_image_urls.append(hemisphere)
+        browser.back()
+    return hemisphere_image_urls
+
+def hemisphere_images(html_text):
+    # parse html text
+    hemi_soup = soup(html_text, "html.parser")
+    # adding try/except for error handling
+    try:
+        title_elem = hemi_soup.find("h2", class_="title").get_text()
+        sample_elem = hemi_soup.find("a", text="Sample").get("href")
+    except AttributeError:
+        # Image error will return None, for better front-end handling
+        title_elem = None
+        sample_elem = None
+    hemispheres = {
+        "title": title_elem,
+        "img_url": sample_elem
+    }
+    return hemispheres
